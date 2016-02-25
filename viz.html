@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Web Audio Visualizer</title>
+    <style>
+        body
+        {
+            background: #eeeeee;
+            font-family: tahoma, verdana, sans serif;
+        }
+
+        canvas
+        {
+            margin-left: 10px;
+            margin-top: 10px;
+            box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+            background: black;
+        }
+
+        #controls
+        {
+            margin-left: 10px;
+            margin-top: 10px;
+        }
+    </style>
+    <script>
+        (function()
+        {
+            "use strict";
+
+            var NUM_SAMPLES = 256;
+            var SOUND_1 = 'media/Fantasy.mp3';
+            var audioElement;
+            var analyserNode;
+            var paused;
+            var lastUpdate = Date.now();
+            var dt;
+            var canvas, ctx;
+
+            //enable bars
+            var bars = true;
+            //whether the bars "fill"
+            var barsInvert = false;
+
+            //enable waves
+            var waves = false;
+
+            //enable heart
+            var heart = true;
+
+            //enable circles
+            var circles = true;
+            //max circles radius
+            var radius = 150;
+            var radiusMin = 100;
+            var radiusMax = 200;
+
+            //enable pulse
+            var pulse = true;
+            //pulse rate
+            var pulseRate = 1.25;
+            var pulseRateMin = 0.5;
+            var pulseRateMax = 2;
+            //pulse scroll speed
+            var pulseSpeed = 75;
+            var pulseSpeedMin = 25;
+            var pulseSpeedMax = 125;
+
+            //pulse vars
+            var pulseTimer = 0;
+            var pulses = [];
+
+            //whether or not to invert the colors
+            var invert = false;
+            var invertBack = true;
+            var noise = false;
+            var lines = false;
+
+            var heartThickness = 20;
+
+            function init()
+            {
+                // set up canvas stuff
+                canvas = document.querySelector('canvas');
+                ctx = canvas.getContext("2d");
+
+                // get reference to <audio> element on page
+                audioElement = document.querySelector('audio');
+
+                // call our helper function and get an analyser node
+                analyserNode = createWebAudioContextWithAnalyserNode(audioElement);
+
+                // get sound track <select> and Full Screen button working
+                setupUI();
+
+                // load and play default sound into audio element
+                playStream(audioElement, SOUND_1);
+
+                // start animation loop
+                update();
+            }
+
+            function createWebAudioContextWithAnalyserNode(audioElement)
+            {
+                var audioCtx, analyserNode, sourceNode;
+                // create new AudioContext
+                // The || is because WebAudio has not been standardized across browsers yet
+                // http://webaudio.github.io/web-audio-api/#the-audiocontext-interface
+                audioCtx = new(window.AudioContext || window.webkitAudioContext);
+
+                // create an analyser node
+                analyserNode = audioCtx.createAnalyser();
+
+                /*
+                We will request NUM_SAMPLES number of samples or "bins" spaced equally
+                across the sound spectrum.
+
+                If NUM_SAMPLES (fftSize) is 256, then the first bin is 0 Hz, the second is 172 Hz,
+                the third is 344Hz. Each bin contains a number between 0-255 representing
+                the amplitude of that frequency.
+                */
+
+                // fft stands for Fast Fourier Transform
+                analyserNode.fftSize = NUM_SAMPLES;
+
+                // this is where we hook up the <audio> element to the analyserNode
+                sourceNode = audioCtx.createMediaElementSource(audioElement);
+                sourceNode.connect(analyserNode);
+
+                // here we connect to the destination i.e. speakers
+                analyserNode.connect(audioCtx.destination);
+                return analyserNode;
+            }
+
+            function setupUI()
+            {
+                document.querySelector("#trackSelect").onchange = function(e)
+                {
+                    playStream(audioElement, e.target.value);
+                };
+                document.querySelector("#fsButton").onclick = function()
+                {
+                    requestFullscreen(canvas);
+                };
+
+                document.querySelector("#modeSelect").onchange = function(e)
+                {
+                    if (e.target.value == "bars")
+                    {
+                        bars = true;
+                        waves = false;
+                    }
+                    else
+                    {
+                        bars = false;
+                        waves = true;
+                    }
+                };
+                document.querySelector("#barsInvert").onchange = function(e)
+                {
+                    barsInvert = e.target.checked;
+                };
+                document.querySelector("#heart").onchange = function(e)
+                {
+                    heart = e.target.checked;
+                };
+                document.querySelector("#circles").onchange = function(e)
+                {
+                    circles = e.target.checked;
+                };
+                document.querySelector("#circleSize").oninput = function(e)
+                {
+                    var percent = document.querySelector("#circleSize").value / 100;
+                    radius = percent * (radiusMax - radiusMin) + radiusMin;
+                };
+                document.querySelector("#pulse").onchange = function(e)
+                {
+                    pulse = e.target.checked;
+                };
+                document.querySelector("#pulseRate").oninput = function(e)
+                {
+                    var percent = document.querySelector("#pulseRate").value / 100;
+                    pulseRate = percent * (pulseRateMax - pulseRateMin) + pulseRateMin;
+                };
+                document.querySelector("#invert").onchange = function(e)
+                {
+                    invert = e.target.checked;
+                };
+                document.querySelector("#invertBack").onchange = function(e)
+                {
+                    invertBack = e.target.checked;
+                };
+                document.querySelector("#noise").onchange = function(e)
+                {
+                    noise = e.target.checked;
+                };
+                document.querySelector("#lines").onchange = function(e)
+                {
+                    lines = e.target.checked;
+                };
+            }
+
+            function playStream(audioElement, path)
+            {
+                audioElement.src = path;
+                audioElement.play();
+                audioElement.volume = 0.2;
+                document.querySelector('#status').innerHTML = "Now playing: " + path;
+            }
+
+            function update()
+            {
+                dt = (Date.now() - lastUpdate) / 1000;
+                lastUpdate = Date.now();
+
+                requestAnimationFrame(update);
+
+                var data = new Uint8Array(NUM_SAMPLES / 2);
+                analyserNode.getByteFrequencyData(data);
+                //analyserNode.getByteTimeDomainData(data); // waveform data
+
+                paused = document.querySelector("audio").paused;
+
+                //calc peaks
+                var highestPeak = 0;
+                var lowestPeak = 255;
+                for (var i = 0; i < data.length; i++)
+                {
+                    if (data[i] > highestPeak)
+                        highestPeak = data[i];
+                    if (data[i] < lowestPeak)
+                        lowestPeak = data[i];
+                }
+
+                //calc data points to skip for being zero
+                var skip;
+                for (var i = data.length - 1; i >= 0; i--)
+                    if (data[i] != 0)
+                    {
+                        skip = i;
+                        break;
+                    }
+
+                if (pulse)
+                {
+                    pulseTimer += dt;
+
+                    //record another pulse
+                    if (pulseTimer >= pulseRate)
+                    {
+                        pulseTimer = 0;
+                        pulses.push(
+                        {
+                            x: 0,
+                            h: (highestPeak - lowestPeak) * Math.random() + lowestPeak
+                        });
+                    }
+
+                    for (var i = 0; i < pulses.length; i++)
+                    {
+                        pulses[i].x += pulseSpeed * dt;
+
+                        if (pulses[i].x >= canvas.width)
+                            pulses.splice(i, 1);
+                    }
+                }
+
+                // DRAW!
+                ctx.clearRect(0, 0, 800, 600);
+
+                // loop through the data and draw!
+                var barWidth = canvas.width / skip;
+                var length = skip;
+                var color;
+                for (var i = 0; i < length; i++)
+                {
+                    color = HSVtoRGB(i / length, 1.0, 1.0);
+                    ctx.strokeStyle = ctx.fillStyle = makeColor(color.r, color.g, color.b, 0.6);
+
+                    if (data[i] != 0)
+                    {
+                        if (bars)
+                        {
+                            var percentH = data[i] / 255;
+                            var h = percentH * canvas.width / 2;
+                            h /= 2;
+
+                            if (barsInvert)
+                            {
+                                ctx.fillRect(i * barWidth, h, barWidth, canvas.height - h * 2);
+                            }
+                            else
+                            {
+                                //top
+                                ctx.fillRect(i * barWidth, 0, barWidth, h);
+                                //bot
+                                ctx.fillRect(i * barWidth, canvas.height - h, barWidth, h);
+                            }
+                        }
+                        else if (waves)
+                        {
+                            var percentH = data[i] / 255;
+                            var h = percentH * canvas.width / 2 / 2;
+                            var h2 = (data[i + 1] / 255) * canvas.width / 2 / 2;
+
+                            ctx.beginPath();
+                            ctx.moveTo(i * barWidth + barWidth / 2, h);
+                            ctx.lineTo((i + 1) * barWidth + barWidth / 2, h2);
+                            ctx.stroke();
+                            ctx.moveTo(i * barWidth + barWidth / 2, canvas.height - h);
+                            ctx.lineTo((i + 1) * barWidth + barWidth / 2, canvas.height - h2);
+                            ctx.stroke();
+                            ctx.closePath();
+                        }
+
+                        //red-ish circles
+                        if (circles)
+                        {
+                            var percent = data[i] / 255;
+                            var circleRadius = percent * radius;
+
+                            ctx.beginPath();
+                            ctx.fillStyle = makeColor(255, 111, 111, 0.34 - percent / 3.0);
+                            ctx.arc(canvas.width / 2, canvas.height / 2, circleRadius, 0, 2 * Math.PI, false);
+                            ctx.fill();
+                            ctx.closePath();
+                        }
+                    }
+                }
+
+                if (pulse)
+                {
+                    ctx.save();
+                    for (var i = 0; i < pulses.length; i++)
+                    {
+                        drawPulse(pulses[i].x, pulses[i].h, "white");
+
+                        if (i != 0)
+                        {
+                            ctx.beginPath();
+                            ctx.moveTo(pulses[i - 1].x, canvas.height / 2);
+                            ctx.lineTo(pulses[i].x + (canvas.width / 64) * 3, canvas.height / 2);
+                            ctx.stroke();
+                            ctx.closePath();
+                        }
+
+                        if (i == 0)
+                        {
+                            ctx.beginPath();
+                            ctx.moveTo(pulses[i].x + (canvas.width / 64) * 3, canvas.height / 2);
+                            ctx.lineTo(canvas.width, canvas.height / 2);
+                            ctx.stroke();
+                            ctx.closePath();
+                        }
+                        if (i == pulses.length - 1)
+                        {
+                            ctx.beginPath();
+                            ctx.moveTo(pulses[i].x, canvas.height / 2);
+                            ctx.lineTo(0, canvas.height / 2);
+                            ctx.stroke();
+                            ctx.closePath();
+                        }
+                    }
+                    ctx.restore();
+                }
+
+                if (heart)
+                {
+                    drawHeart(canvas.width / 2, canvas.height / 2, "white", highestPeak / 255);
+                    drawHeart(canvas.width / 2, canvas.height / 2, "black", (highestPeak - heartThickness) / 255);
+                }
+
+                manipulatePixels();
+            }
+
+            function manipulatePixels()
+            {
+                if (paused) return;
+
+                var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                var data = imageData.data;
+                var length = data.length;
+                var width = imageData.width;
+
+                for (var i = 0; i < length; i += 4)
+                {
+                    if (invert)
+                    {
+                        var red = data[i];
+                        var green = data[i + 1];
+                        var blue = data[i + 2];
+
+                        data[i] = 255 - red;
+                        data[i + 1] = 255 - green;
+                        data[i + 2] = 255 - blue;
+
+                        if (invertBack)
+                        {
+                            data[i + 3] = 255;
+                        }
+                    }
+
+                    if (noise && Math.random() < 0.10)
+                    {
+                        data[i] = data[i + 1] = data[i + 2] = 128;
+                        //data[i + 3] = 255;
+                    }
+
+                    if (lines)
+                    {
+                        var row = Math.floor(i / 4 / width);
+                        if (row % 50 == 0)
+                        {
+                            data[i] = data[i + 1] = data[i + 2] = data[i + 3] = 255;
+
+                            data[i] = data[i + width * 4] = data[i + width * 4] = data[i + width * 4] = 255;
+                        }
+                    }
+                }
+
+                ctx.putImageData(imageData, 0, 0);
+            }
+
+            // HELPER
+            function drawHeart(x, y, color, scale)
+            {
+                ctx.save();
+                ctx.fillStyle = color;
+                ctx.translate(x - 75 * scale, y - 75 * scale);
+                ctx.scale(scale, scale);
+                ctx.beginPath();
+                ctx.moveTo(75, 40);
+                ctx.bezierCurveTo(75, 37, 70, 25, 50, 25);
+                ctx.bezierCurveTo(20, 25, 20, 62.5, 20, 62.5);
+                ctx.bezierCurveTo(20, 80, 40, 102, 75, 120);
+                ctx.bezierCurveTo(110, 102, 130, 80, 130, 62.5);
+                ctx.bezierCurveTo(130, 62.5, 130, 25, 100, 25);
+                ctx.bezierCurveTo(85, 25, 75, 37, 75, 40);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            function drawPulse(x, h, color)
+            {
+                ctx.strokeStyle = color;
+                ctx.beginPath();
+                ctx.moveTo(x, canvas.height / 2);
+                var s = canvas.width / 64;
+                ctx.lineTo(x += s, canvas.height / 2 - h);
+                ctx.lineTo(x += s, canvas.height / 2 + h / 4);
+                ctx.lineTo(x += s, canvas.height / 2);
+                ctx.stroke();
+                ctx.closePath();
+            }
+
+            function makeColor(red, green, blue, alpha)
+            {
+                var color = 'rgba(' + red + ',' + green + ',' + blue + ', ' + alpha + ')';
+                return color;
+            }
+
+            function HSVtoRGB(h, s, v)
+            {
+                var r, g, b, i, f, p, q, t;
+                if (arguments.length === 1)
+                {
+                    s = h.s, v = h.v, h = h.h;
+                }
+                i = Math.floor(h * 6);
+                f = h * 6 - i;
+                p = v * (1 - s);
+                q = v * (1 - f * s);
+                t = v * (1 - (1 - f) * s);
+                switch (i % 6)
+                {
+                    case 0:
+                        r = v, g = t, b = p;
+                        break;
+                    case 1:
+                        r = q, g = v, b = p;
+                        break;
+                    case 2:
+                        r = p, g = v, b = t;
+                        break;
+                    case 3:
+                        r = p, g = q, b = v;
+                        break;
+                    case 4:
+                        r = t, g = p, b = v;
+                        break;
+                    case 5:
+                        r = v, g = p, b = q;
+                        break;
+                }
+                return {
+                    r: Math.round(r * 255),
+                    g: Math.round(g * 255),
+                    b: Math.round(b * 255)
+                };
+            }
+
+            // FULL SCREEN MODE
+            function requestFullscreen(element)
+            {
+                if (element.requestFullscreen)
+                {
+                    element.requestFullscreen();
+                }
+                else if (element.mozRequestFullscreen)
+                {
+                    element.mozRequestFullscreen();
+                }
+                else if (element.mozRequestFullScreen)
+                { // camel-cased 'S' was changed to 's' in spec
+                    element.mozRequestFullScreen();
+                }
+                else if (element.webkitRequestFullscreen)
+                {
+                    element.webkitRequestFullscreen();
+                }
+                // .. and do nothing if the method is not supported
+            };
+
+            window.addEventListener("load", init);
+        }());
+    </script>
+</head>
+
+<body>
+    <canvas id="canvas" width="640" height="400"></canvas>
+    <div id="controls">
+        <audio controls loop></audio>
+        <label>Track:
+            <select id="trackSelect">
+                <option value="media/Fantasy.mp3">Fantasy</option>
+            </select>
+        </label>
+        <button id="fsButton">Go Full Screen</button>
+        <br>
+        <br>
+        <label>Style:
+            <select id="modeSelect">
+                <option value="bars" selected>Bars</option>
+                <option value="waves">Waves</option>
+            </select>
+        </label>
+
+        <label for="barsInvert">Invert Bars</label>
+        <input id="barsInvert" type="checkbox">
+        <br>
+        <br>
+        <label for="heart">Heart</label>
+        <input id="heart" type="checkbox" checked>
+        <br>
+        <br>
+        <label for="circles">Circles</label>
+        <input id="circles" type="checkbox" checked>
+
+        <label for="circleSize">Circle Size</label>
+        <input id="circleSize" type="range">
+        <br>
+        <br>
+        <label for="pulse">Pulse</label>
+        <input id="pulse" type="checkbox" checked>
+
+        <label for="pulseRate">Pulse Rate</label>
+        <input id="pulseRate" type="range">
+        <br>
+        <br>
+        <label for="invert">Invert Colors</label>
+        <input id="invert" type="checkbox">
+
+        <label for="invertBack">Invert Background</label>
+        <input id="invertBack" type="checkbox" checked>
+
+        <label for="noise">Noise</label>
+        <input id="noise" type="checkbox">
+
+        <label for="lines">Lines</label>
+        <input id="lines" type="checkbox">
+        <p id="status">???</p>
+    </div>
+</body>
+
+</html>
