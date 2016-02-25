@@ -46,7 +46,10 @@
             "use strict";
 
             var NUM_SAMPLES = 256;
-            var SOUND_1 = 'media/Fantasy.mp3';
+            var SOUND_1 = "media/Fantasy.mp3";
+            var SOUND_2 = "media/TRNDSTTR.mp3";
+            var SOUND_3 = "media/IdLovetoChangetheWorld.mp3";
+            var SOUND_4 = "media/TheNextEpisode.mp3";
             var audioElement;
             var analyserNode;
             var paused;
@@ -561,7 +564,10 @@
             <audio controls loop></audio>
             <label>Track:
                 <select id="trackSelect">
-                    <option value="media/Fantasy.mp3">Fantasy</option>
+                    <option value="media/Fantasy.mp3" selected>Fantasy</option>
+                    <option value="media/TRNDSTTR.mp3">TRNDSTTR (Lucian Remix)</option>
+                    <option value="media/IdLovetoChangetheWorld.mp3">I'd Love to Change the World</option>
+                    <option value="media/TheNextEpisode.mp3">The Next Episode (San Holo Remix)</option>
                 </select>
             </label>
             <button id="fsButton">Go Full Screen</button>
