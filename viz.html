@@ -52,6 +52,7 @@
 
             //enable circles
             var circles = true;
+            var circleStroke = false;
             //max circles radius
             var radius = 150;
             var radiusMin = 100;
@@ -169,6 +170,10 @@
                 document.querySelector("#circles").onchange = function(e)
                 {
                     circles = e.target.checked;
+                };
+                document.querySelector("#circleStroke").onchange = function(e)
+                {
+                    circleStroke = e.target.checked;
                 };
                 document.querySelector("#circleSize").oninput = function(e)
                 {
@@ -325,6 +330,10 @@
                             ctx.fillStyle = makeColor(255, 111, 111, 0.34 - percent / 3.0);
                             ctx.arc(canvas.width / 2, canvas.height / 2, circleRadius, 0, 2 * Math.PI, false);
                             ctx.fill();
+
+                            if (circleStroke)
+                                ctx.stroke();
+
                             ctx.closePath();
                         }
                     }
@@ -557,6 +566,9 @@
         <br>
         <label for="circles">Circles</label>
         <input id="circles" type="checkbox" checked>
+
+        <label for="circleStroke">Circle Outline</label>
+        <input id="circleStroke" type="checkbox">
 
         <label for="circleSize">Circle Size</label>
         <input id="circleSize" type="range">
