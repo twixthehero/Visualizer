@@ -9,19 +9,34 @@
         {
             background: #eeeeee;
             font-family: tahoma, verdana, sans serif;
+            padding: 0;
+            margin: 0;
+        }
+
+        #canvasContainer
+        {
+            width: 100%;
+            text-align: center;
         }
 
         canvas
         {
-            margin-left: 10px;
-            margin-top: 10px;
+            display: inline;
             box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
             background: black;
         }
 
+        #controlContainer
+        {
+            width: 100%;
+            text-align: center;
+        }
+
         #controls
         {
-            margin-left: 10px;
+            display: inline-block;
+            margin-left: auto;
+            margin-right: auto;
             margin-top: 10px;
         }
     </style>
@@ -273,7 +288,7 @@
                 }
 
                 // DRAW!
-                ctx.clearRect(0, 0, 800, 600);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                 // loop through the data and draw!
                 var barWidth = canvas.width / skip;
@@ -538,61 +553,60 @@
 </head>
 
 <body>
-    <canvas id="canvas" width="640" height="400"></canvas>
-    <div id="controls">
-        <audio controls loop></audio>
-        <label>Track:
-            <select id="trackSelect">
-                <option value="media/Fantasy.mp3">Fantasy</option>
-            </select>
-        </label>
-        <button id="fsButton">Go Full Screen</button>
-        <br>
-        <br>
-        <label>Style:
-            <select id="modeSelect">
-                <option value="bars" selected>Bars</option>
-                <option value="waves">Waves</option>
-            </select>
-        </label>
+    <div id="canvasContainer">
+        <canvas id="canvas" width="1280" height="720"></canvas>
+    </div>
+    <div id="controlContainer">
+        <div id="controls">
+            <audio controls loop></audio>
+            <label>Track:
+                <select id="trackSelect">
+                    <option value="media/Fantasy.mp3">Fantasy</option>
+                </select>
+            </label>
+            <button id="fsButton">Go Full Screen</button>
+            <br>
+            <label>Style:
+                <select id="modeSelect">
+                    <option value="bars" selected>Bars</option>
+                    <option value="waves">Waves</option>
+                </select>
+            </label>
 
-        <label for="barsInvert">Invert Bars</label>
-        <input id="barsInvert" type="checkbox">
-        <br>
-        <br>
-        <label for="heart">Heart</label>
-        <input id="heart" type="checkbox" checked>
-        <br>
-        <br>
-        <label for="circles">Circles</label>
-        <input id="circles" type="checkbox" checked>
+            <label for="barsInvert">Invert Bars</label>
+            <input id="barsInvert" type="checkbox">
+            <br>
+            <label for="heart">Heart</label>
+            <input id="heart" type="checkbox" checked>
+            <br>
+            <label for="circles">Circles</label>
+            <input id="circles" type="checkbox" checked>
 
-        <label for="circleStroke">Circle Outline</label>
-        <input id="circleStroke" type="checkbox">
+            <label for="circleStroke">Circle Outline</label>
+            <input id="circleStroke" type="checkbox">
 
-        <label for="circleSize">Circle Size</label>
-        <input id="circleSize" type="range">
-        <br>
-        <br>
-        <label for="pulse">Pulse</label>
-        <input id="pulse" type="checkbox" checked>
+            <label for="circleSize">Circle Size</label>
+            <input id="circleSize" type="range">
+            <br>
+            <label for="pulse">Pulse</label>
+            <input id="pulse" type="checkbox" checked>
 
-        <label for="pulseRate">Pulse Rate</label>
-        <input id="pulseRate" type="range">
-        <br>
-        <br>
-        <label for="invert">Invert Colors</label>
-        <input id="invert" type="checkbox">
+            <label for="pulseRate">Pulse Rate</label>
+            <input id="pulseRate" type="range">
+            <br>
+            <label for="invert">Invert Colors</label>
+            <input id="invert" type="checkbox">
 
-        <label for="invertBack">Invert Background</label>
-        <input id="invertBack" type="checkbox" checked>
+            <label for="invertBack">Invert Background</label>
+            <input id="invertBack" type="checkbox" checked>
 
-        <label for="noise">Noise</label>
-        <input id="noise" type="checkbox">
+            <label for="noise">Noise</label>
+            <input id="noise" type="checkbox">
 
-        <label for="lines">Lines</label>
-        <input id="lines" type="checkbox">
-        <p id="status">???</p>
+            <label for="lines">Lines</label>
+            <input id="lines" type="checkbox">
+            <p id="status">???</p>
+        </div>
     </div>
 </body>
 
